@@ -1,4 +1,4 @@
-import { IsNumber, IsNotEmpty, IsString } from 'class-validator';
+import { IsNumber, IsNotEmpty, IsString, IsOptional } from 'class-validator';
 
 export class GenerateQuestionDto {
   @IsNumber()
@@ -8,5 +8,10 @@ export class GenerateQuestionDto {
   @IsString()
   @IsNotEmpty()
   topicContent: string;
+
+  @IsString()
+  @IsOptional()
+  exampleContent?: string;
 }
+
 

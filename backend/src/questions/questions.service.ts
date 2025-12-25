@@ -37,6 +37,7 @@ export class QuestionsService {
     this.logger.log('调用AI服务生成题目...');
     const { question, answer } = await this.aiService.generateQuestion(
       generateQuestionDto.topicContent,
+      generateQuestionDto.exampleContent,
     );
     this.logger.log(`AI返回题目长度: ${question?.length || 0}, 答案长度: ${answer?.length || 0}`);
 

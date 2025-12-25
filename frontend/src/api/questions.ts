@@ -12,6 +12,7 @@ export interface Question {
 export interface GenerateQuestionRequest {
   topicId: number;
   topicContent: string;
+  exampleContent?: string;
 }
 
 export const questionsApi = {

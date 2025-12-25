@@ -16,6 +16,8 @@ export function TopicContent({ topic }: TopicContentProps) {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [showExampleModal, setShowExampleModal] = useState(false);
+  const [exampleContent, setExampleContent] = useState('');
 
   useEffect(() => {
     if (topic) {
@@ -39,13 +41,20 @@ export function TopicContent({ topic }: TopicContentProps) {
     }
   };
 
-  const handleGenerateQuestion = async () => {
+  const handleGenerateQuestionClick = () => {
+    setShowExampleModal(true);
+    setExampleContent('');
+  };
+
+  const handleModalConfirm = async () => {
     if (!topic) return;
+    setShowExampleModal(false);
     try {
       setGenerating(true);
       const newQuestion = await questionsApi.generate({
         topicId: topic.id,
         topicContent: topic.content,
+        exampleContent: exampleContent.trim(),
       });
       console.log('生成的题目:', newQuestion);
       if (newQuestion && newQuestion.id) {
@@ -60,7 +69,13 @@ export function TopicContent({ topic }: TopicContentProps) {
       alert(`生成题目失败：${errorMessage}`);
     } finally {
       setGenerating(false);
+      setExampleContent('');
     }
+  };
+
+  const handleModalCancel = () => {
+    setShowExampleModal(false);
+    setExampleContent('');
   };
 
   if (!topic) {
@@ -77,7 +92,7 @@ export function TopicContent({ topic }: TopicContentProps) {
         <h1 className="topic-title">{topic.title}</h1>
         <button
           className="generate-button"
-          onClick={handleGenerateQuestion}
+          onClick={handleGenerateQuestionClick}
           disabled={generating}
         >
           {generating ? '生成中...' : '出个题给我做做'}
@@ -100,6 +115,41 @@ export function TopicContent({ topic }: TopicContentProps) {
           ))
         )}
       </div>
+
+      {showExampleModal && (
+        <div className="modal-overlay" onClick={handleModalCancel}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>输入例题</h2>
+              <button className="modal-close" onClick={handleModalCancel}>×</button>
+            </div>
+            <div className="modal-body">
+              <label className="modal-label">
+                请输入一道与专题相关的例题（包含题目和解题方法）：
+              </label>
+              <textarea
+                className="modal-textarea"
+                value={exampleContent}
+                onChange={(e) => setExampleContent(e.target.value)}
+                placeholder={`例如：
+题目：求解方程 $x^2 + 2x - 3 = 0$
+
+解题方法：
+使用配方法，将方程化为 $(x+1)^2 = 4$，然后开平方得到 $x+1 = \\pm 2$，所以 $x = 1$ 或 $x = -3$。`}
+                rows={12}
+              />
+            </div>
+            <div className="modal-footer">
+              <button className="modal-button modal-button-cancel" onClick={handleModalCancel}>
+                取消
+              </button>
+              <button className="modal-button modal-button-confirm" onClick={handleModalConfirm}>
+                确认
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

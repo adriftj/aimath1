@@ -67,24 +67,35 @@ export class AiService {
     this.logger.log(`代理配置: ${proxyUrl}`);
   }
 
-  async generateQuestion(topicContent: string): Promise<{ question: string; answer: string }> {
+  async generateQuestion(topicContent: string, exampleContent?: string): Promise<{ question: string; answer: string }> {
     if (this.provider === 'gemini') {
-      return this.generateQuestionWithGemini(topicContent);
+      return this.generateQuestionWithGemini(topicContent, exampleContent);
     } else {
-      return this.generateQuestionWithDeepSeek(topicContent);
+      return this.generateQuestionWithDeepSeek(topicContent, exampleContent);
     }
   }
 
-  private async generateQuestionWithDeepSeek(topicContent: string): Promise<{ question: string; answer: string }> {
-    this.logger.log(`开始调用DeepSeek API，topicContent长度: ${topicContent?.length || 0}`);
+  private async generateQuestionWithDeepSeek(topicContent: string, exampleContent?: string): Promise<{ question: string; answer: string }> {
+    this.logger.log(`开始调用DeepSeek API，topicContent长度: ${topicContent?.length || 0}, exampleContent长度: ${exampleContent?.length || 0}`);
     
-    const prompt = `请基于以下数学专题内容，生成一道相关的数学题目。
+    let prompt = `请生成一道可使用以下方法解决的的数学题目。
 
-专题内容：
-${topicContent}
+方法说明：
+${topicContent}`;
+
+    if (exampleContent && exampleContent.trim()) {
+      prompt += `
+
+参考例题：
+${exampleContent.trim()}
+
+请根据参考例题中使用的解题方法，生成一道使用相同或类似解题方法的题目。`;
+    }
+
+    prompt += `
 
 要求：
-1. 题目应该与专题内容相关，难度适中
+1. 题目应该与专题内容相关，难度适中${exampleContent && exampleContent.trim() ? '，并且与参考例题的解题方法一致' : ''}
 2. 题目使用Markdown格式，数学公式必须使用标准的LaTeX格式：
    - 行内公式：使用 $...$ 格式（例如：$x^2 + y^2 = r^2$）
    - 多行公式：使用 $$...$$ 格式（例如：$$\\int_a^b f(x)dx$$）
@@ -147,16 +158,27 @@ ${topicContent}
     }
   }
 
-  private async generateQuestionWithGemini(topicContent: string): Promise<{ question: string; answer: string }> {
-    this.logger.log(`开始调用Gemini API，topicContent长度: ${topicContent?.length || 0}`);
+  private async generateQuestionWithGemini(topicContent: string, exampleContent?: string): Promise<{ question: string; answer: string }> {
+    this.logger.log(`开始调用Gemini API，topicContent长度: ${topicContent?.length || 0}, exampleContent长度: ${exampleContent?.length || 0}`);
     
-    const prompt = `请基于以下数学专题内容，生成一道相关的数学题目。
+    let prompt = `请生成一道可使用以下方法解决的的数学题目。
 
-专题内容：
-${topicContent}
+方法说明：
+${topicContent}`;
+
+    if (exampleContent && exampleContent.trim()) {
+      prompt += `
+
+参考例题：
+${exampleContent.trim()}
+
+请根据参考例题中使用的解题方法，生成一道使用相同或类似解题方法的题目。`;
+    }
+
+    prompt += `
 
 要求：
-1. 题目应该与专题内容相关，难度适中
+1. 题目应当能用以上给出的类似方法解答${exampleContent && exampleContent.trim() ? '，并且与参考例题的解题方法一致' : ''}
 2. 题目使用Markdown格式，数学公式必须使用标准的LaTeX格式：
    - 行内公式：使用 $...$ 格式（例如：$x^2 + y^2 = r^2$）
    - 多行公式：使用 $$...$$ 格式（例如：$$\\int_a^b f(x)dx$$）
