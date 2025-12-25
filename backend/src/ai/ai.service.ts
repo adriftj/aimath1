@@ -18,7 +18,7 @@ export class AiService {
   private readonly geminiApiBaseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
   private readonly proxyAgent: HttpsProxyAgent<string> | null;
   private readonly axiosInstance: AxiosInstance;
-  private readonly geminiAxiosInstance: AxiosInstance | null;
+  private readonly geminiAxiosInstance: AxiosInstance;
 
   constructor() {
     // 确定使用的AI提供商（默认使用deepseek）
@@ -41,23 +41,19 @@ export class AiService {
       proxy: false, // 使用agent而不是proxy配置
     });
 
-    // 创建Gemini专用的axios实例（带代理）
-    if (this.provider === 'gemini') {
-      this.geminiAxiosInstance = axios.create({
-        timeout: 300000, // 300秒（5分钟）超时
-        httpsAgent: this.proxyAgent || undefined,
-        proxy: false, // 使用agent而不是proxy配置
-      });
-    } else {
-      this.geminiAxiosInstance = null;
-    }
+    // 创建Gemini专用的axios实例（带代理）- 总是创建，以支持运行时切换
+    this.geminiAxiosInstance = axios.create({
+      timeout: 300000, // 300秒（5分钟）超时
+      httpsAgent: this.proxyAgent || undefined,
+      proxy: false, // 使用agent而不是proxy配置
+    });
 
-    // 验证API密钥
+    // 验证API密钥（仅在默认provider时验证，运行时切换时再验证）
     if (this.provider === 'deepseek' && !this.deepseekApiKey) {
-      throw new Error('DEEPSEEK_API_KEY is not set in environment variables');
+      this.logger.warn('DEEPSEEK_API_KEY is not set in environment variables');
     }
     if (this.provider === 'gemini' && !this.geminiApiKey) {
-      throw new Error('GEMINI_API_KEY is not set in environment variables');
+      this.logger.warn('GEMINI_API_KEY is not set in environment variables');
     }
 
     this.logger.log(`AiService初始化完成，使用提供商: ${this.provider}`);
@@ -67,17 +63,31 @@ export class AiService {
     this.logger.log(`代理配置: ${proxyUrl}`);
   }
 
-  async generateQuestion(topicContent: string, exampleContent?: string): Promise<{ question: string; answer: string }> {
-    if (this.provider === 'gemini') {
+  async generateQuestion(topicContent: string, exampleContent?: string, provider?: AiProvider): Promise<{ question: string; answer: string }> {
+    const selectedProvider = provider || this.provider;
+    
+    // 验证所选provider的API密钥
+    if (selectedProvider === 'deepseek' && !this.deepseekApiKey) {
+      throw new HttpException('DEEPSEEK_API_KEY is not set', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+    if (selectedProvider === 'gemini' && !this.geminiApiKey) {
+      throw new HttpException('GEMINI_API_KEY is not set', HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+    
+    if (selectedProvider === 'gemini') {
       return this.generateQuestionWithGemini(topicContent, exampleContent);
     } else {
       return this.generateQuestionWithDeepSeek(topicContent, exampleContent);
     }
   }
 
-  private async generateQuestionWithDeepSeek(topicContent: string, exampleContent?: string): Promise<{ question: string; answer: string }> {
-    this.logger.log(`开始调用DeepSeek API，topicContent长度: ${topicContent?.length || 0}, exampleContent长度: ${exampleContent?.length || 0}`);
-    
+  /**
+   * 生成AI提示词
+   * @param topicContent 专题内容
+   * @param exampleContent 可选的例题内容
+   * @returns 生成的提示词
+   */
+  private buildPrompt(topicContent: string, exampleContent?: string): string {
     let prompt = `请生成一道可使用以下方法解决的的数学题目。
 
 方法说明：
@@ -106,6 +116,14 @@ ${exampleContent.trim()}
 答案：[答案内容]
 
 请确保题目和答案都是完整的，可以直接使用。`;
+
+    return prompt;
+  }
+
+  private async generateQuestionWithDeepSeek(topicContent: string, exampleContent?: string): Promise<{ question: string; answer: string }> {
+    this.logger.log(`开始调用DeepSeek API，topicContent长度: ${topicContent?.length || 0}, exampleContent长度: ${exampleContent?.length || 0}`);
+    
+    const prompt = this.buildPrompt(topicContent, exampleContent);
 
     try {
       this.logger.log(`发送请求到DeepSeek API: ${this.deepseekApiUrl}`);
@@ -161,44 +179,13 @@ ${exampleContent.trim()}
   private async generateQuestionWithGemini(topicContent: string, exampleContent?: string): Promise<{ question: string; answer: string }> {
     this.logger.log(`开始调用Gemini API，topicContent长度: ${topicContent?.length || 0}, exampleContent长度: ${exampleContent?.length || 0}`);
     
-    let prompt = `请生成一道可使用以下方法解决的的数学题目。
-
-方法说明：
-${topicContent}`;
-
-    if (exampleContent && exampleContent.trim()) {
-      prompt += `
-
-参考例题：
-${exampleContent.trim()}
-
-请根据参考例题中使用的解题方法，生成一道使用相同或类似解题方法的题目。`;
-    }
-
-    prompt += `
-
-要求：
-1. 题目应当能用以上给出的类似方法解答${exampleContent && exampleContent.trim() ? '，并且与参考例题的解题方法一致' : ''}
-2. 题目使用Markdown格式，数学公式必须使用标准的LaTeX格式：
-   - 行内公式：使用 $...$ 格式（例如：$x^2 + y^2 = r^2$）
-   - 多行公式：使用 $$...$$ 格式（例如：$$\\int_a^b f(x)dx$$）
-   - 重要：不要使用 (...) 或 [...] 等其他格式，必须使用 $ 和 $$ 符号
-3. 答案也要使用Markdown格式，数学公式同样必须使用标准的LaTeX格式（$...$ 和 $$...$$）
-4. 请按照以下格式返回：
-题目：[题目内容]
-答案：[答案内容]
-
-请确保题目和答案都是完整的，可以直接使用。`;
+    const prompt = this.buildPrompt(topicContent, exampleContent);
 
     try {
-      if (!this.geminiAxiosInstance) {
-        throw new HttpException('Gemini axios实例未初始化', HttpStatus.INTERNAL_SERVER_ERROR);
-      }
-
       // 使用正确的API端点格式
       const geminiApiUrl = `${this.geminiApiBaseUrl}/${this.geminiModel}:generateContent`;
       const url = `${geminiApiUrl}?key=${this.geminiApiKey}`;
-      this.logger.log(`发送请求到Gemini API，模型: ${this.geminiModel}, URL: ${url}`);
+      this.logger.log(`发送请求到Gemini API，模型: ${this.geminiModel}`);
 
       const response = await this.geminiAxiosInstance.post(
         url,

@@ -1,4 +1,4 @@
-import { IsNumber, IsNotEmpty, IsString, IsOptional } from 'class-validator';
+import { IsNumber, IsNotEmpty, IsString, IsOptional, IsIn } from 'class-validator';
 
 export class GenerateQuestionDto {
   @IsNumber()
@@ -12,6 +12,11 @@ export class GenerateQuestionDto {
   @IsString()
   @IsOptional()
   exampleContent?: string;
+
+  @IsString()
+  @IsOptional()
+  @IsIn(['deepseek', 'gemini'])
+  aiProvider?: 'deepseek' | 'gemini';
 }
 
 

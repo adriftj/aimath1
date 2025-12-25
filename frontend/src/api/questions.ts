@@ -13,6 +13,7 @@ export interface GenerateQuestionRequest {
   topicId: number;
   topicContent: string;
   exampleContent?: string;
+  aiProvider?: 'deepseek' | 'gemini';
 }
 
 export const questionsApi = {

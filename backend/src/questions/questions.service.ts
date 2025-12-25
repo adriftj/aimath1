@@ -34,10 +34,11 @@ export class QuestionsService {
     this.logger.log(`专题验证成功: ${topic.title}`);
 
     // 调用AI服务生成题目
-    this.logger.log('调用AI服务生成题目...');
+    this.logger.log(`调用AI服务生成题目...，使用AI引擎: ${generateQuestionDto.aiProvider || '默认'}`);
     const { question, answer } = await this.aiService.generateQuestion(
       generateQuestionDto.topicContent,
       generateQuestionDto.exampleContent,
+      generateQuestionDto.aiProvider,
     );
     this.logger.log(`AI返回题目长度: ${question?.length || 0}, 答案长度: ${answer?.length || 0}`);
 

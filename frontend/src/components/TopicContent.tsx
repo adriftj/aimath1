@@ -18,6 +18,7 @@ export function TopicContent({ topic }: TopicContentProps) {
   const [generating, setGenerating] = useState(false);
   const [showExampleModal, setShowExampleModal] = useState(false);
   const [exampleContent, setExampleContent] = useState('');
+  const [aiProvider, setAiProvider] = useState<'deepseek' | 'gemini'>('deepseek');
 
   useEffect(() => {
     if (topic) {
@@ -55,6 +56,7 @@ export function TopicContent({ topic }: TopicContentProps) {
         topicId: topic.id,
         topicContent: topic.content,
         exampleContent: exampleContent.trim(),
+        aiProvider: aiProvider,
       });
       console.log('生成的题目:', newQuestion);
       if (newQuestion && newQuestion.id) {
@@ -90,13 +92,24 @@ export function TopicContent({ topic }: TopicContentProps) {
     <div className="topic-content">
       <div className="topic-content-header">
         <h1 className="topic-title">{topic.title}</h1>
-        <button
-          className="generate-button"
-          onClick={handleGenerateQuestionClick}
-          disabled={generating}
-        >
-          {generating ? '生成中...' : '出个题给我做做'}
-        </button>
+        <div className="generate-controls">
+          <select
+            className="ai-provider-select"
+            value={aiProvider}
+            onChange={(e) => setAiProvider(e.target.value as 'deepseek' | 'gemini')}
+            disabled={generating}
+          >
+            <option value="deepseek">DeepSeek</option>
+            <option value="gemini">Gemini</option>
+          </select>
+          <button
+            className="generate-button"
+            onClick={handleGenerateQuestionClick}
+            disabled={generating}
+          >
+            {generating ? '生成中...' : '出个题给我做做'}
+          </button>
+        </div>
       </div>
       <div className="topic-content-body">
         <ReactMarkdown
